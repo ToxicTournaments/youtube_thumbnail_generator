@@ -7,12 +7,14 @@ from PIL import Image
 import imagehash
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from scipy.fftpack import diff
+import time
 
 # your path may be different
 pytesseract.pytesseract.tesseract_cmd = '/usr/local/Cellar/tesseract/5.2.0/bin/tesseract'
 
 # file path of videos
-video_path = './videos/'
+video_path = '/Volumes/DiskHFS/'
 
 cutoff = 5  # maximum bits that could be different between the hashes.
 osb = ImageFont.truetype('./font/Oswald-Heavy-Italic.ttf', 108)
@@ -33,7 +35,7 @@ src_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 src_im_pil = Image.fromarray(src_img)
 hash0 = imagehash.average_hash(src_im_pil)
 
-titles = ['Prelims', 'Quarter-Finals',
+titles = ['Pools', 'Prelims', 'Quarter-Finals',
           'Semi-Finals', 'Finals', 'Grand Finals']
 
 
@@ -47,6 +49,18 @@ black_pixel = np.asarray([0, 0, 0])
 # player Two : image[930:987, 1411:1767] = (0, 255, 0)
 # Character One : image[930:987, 494:850] = (0, 255, 0)
 # Character Two : image[930:987, 494:850] = (0, 255, 0)
+
+
+def gen_yt_tags(p1, p2, char1, char2, set):
+    tags = [p1, p2, p1 + ' vs ' + p2, p2 + ' vs ' + p1, p1 + ' ' + char1, p2 + ' ' + char2,
+            'ssbu ' + char1, 'ssbu ' + char2,  char2 +
+            ' ssbu', char1 + ' ssbu', char2 + ' ssbu',
+            char1 + ' ultimate', char2 + ' ultimate', 'ultimate ' + char1, 'ultimate ' + char2,
+            'smash ' + char1, 'smash ' + char2, char1 + ' smash', char2 + ' smash',
+            set + ' ' + char1, set + ' ' + char2, char1 + ' ' + set, char2 + ' ' + set,
+            'midwest ' + char1, 'midwest ' + char2, char1 + ' midwest', char2 + ' midwest', ]
+    # print(tags)
+    return tags
 
 
 def draw_text_psd_style(draw, xy, text, font, tracking=-32, leading=None, **kwargs):
@@ -116,29 +130,50 @@ def get_text_of_area(x1, x2, y1, y2, image, blackOutBackground):
 
 
 def generate_thumbnail(game_title, p1, p2, char1, char2, game_number):
-    p1 = p1.replace('/n', '')
-    p2 = p2.replace('/n', '')
-    char1 = char1.replace('/n', '')
-    char2 = char2.replace('/n', '')
+    p1 = p1.replace('\n', '')
+    p2 = p2.replace('\n', '')
+    char1 = char1.replace(' \n', '')
+    char2 = char2.replace(' \n', '')
+    char1 = char1.replace('\n', '')
+    char2 = char2.replace('\n', '')
+
+    if char1 == 'Roy :-':
+        char1 = 'Roy'
+    if char2 == 'Roy :-':
+        char2 = 'Roy'
     game_type = 'Ultimate Singles'
     print('Generating thumbnail for ' + game_title + ' ' + p1.replace('\n', '') + ' (' +
           char1.replace('\n', '') + ') vs ' + p2.replace('\n', '') + ' (' + char2.replace('\n', '') + ')')
     # Create a new image
-    charOne = Image.open(
-        './characters/' + char1.replace(' ', '_').replace('\n', '') + '.png')
-    charOne = charOne.resize((int(charOne.width / 3), int(charOne.height / 3)))
-    charTwo = Image.open(
-        './characters/' + char2.replace(' ', '_').replace('\n', '') + '.png')
-    charTwo = charTwo.resize((int(charTwo.width / 3), int(charTwo.height / 3)))
+    try:
+        charOne = Image.open(
+            './characters/' + char1.replace(' ', '_').replace('\n', '').replace(':', '').replace('-', '') + '.png')
+        charOne = charOne.resize(
+            (int(charOne.width / 3), int(charOne.height / 3)))
+        charTwo = Image.open(
+            './characters/' + char2.replace(' ', '_').replace('\n', '').replace(':', '').replace('-', '') + '.png')
+        charTwo = charTwo.resize(
+            (int(charTwo.width / 3), int(charTwo.height / 3)))
+    except:
+        print("Error: Character not found skipping")
+        return
+
+    if (p1 == " " or p1 == ""):
+        p1 = 'Orb of Light'
+    if (p2 == " " or p2 == ""):
+
+        p2 = 'Orb of Light'
+    # print('p1: ' + p1)
+    # print('p2: ' + p2)
     img = Image.new('RGB', (1920, 1080), 'white')
     img.paste(background, (0, 0), background)
 
     img.paste(charOne, (int(480 - (charOne.width/2)),
-              -100), charOne)
+              100), charOne)
     # print('width: ' + str(charOne.width))
     # print('width: ' + str(charTwo.width))
     img.paste(charTwo, (int(1440 - (charTwo.width/2)),
-              -100), charTwo)
+              100), charTwo)
     img.paste(overlay, (0, 0), overlay)
     img.paste(versus, (0, 0), versus)
 
@@ -152,12 +187,12 @@ def generate_thumbnail(game_title, p1, p2, char1, char2, game_number):
     w = x2 - x1
     h = y2 - y1
     draw_text_psd_style(font=osb, draw=d1, text=p1.upper(), xy=(
-        480 - (w/2) + 6, h/2 + 6), fill=(0, 0, 0), alignment='center')
+        480 - (w/2) + 6, (h/2) + 6), fill=(0, 0, 0), alignment='center')
     draw_text_psd_style(font=osb, draw=d1, text=p1.upper(), xy=(
-        480 - w/2, h/2), fill=(255, 255, 255), alignment='center')
+        480 - w/2, (h/2)), fill=(255, 255, 255), alignment='center')
     drawingOne = drawingOne.rotate(
         2.452, expand=1, fillcolor=(255, 255, 255, 0), resample=Image.Resampling.BICUBIC)
-    img.paste(drawingOne, (0, -162), drawingOne)
+    img.paste(drawingOne, (0, -146+int(h/2)), drawingOne)
 
     # Draw text Two
     drawingTwo = Image.new('RGBA', (1920, 1080), (255, 255, 255, 0))
@@ -175,7 +210,7 @@ def generate_thumbnail(game_title, p1, p2, char1, char2, game_number):
         0, 0), fill=(255, 255, 255), alignment='center')
     drawingTwo = drawingTwo.rotate(
         2.452, expand=1, fillcolor=(255, 255, 255, 0), resample=Image.Resampling.BICUBIC)
-    img.paste(drawingTwo, (1440-int(w/2), -174+int(h/2)), drawingTwo)
+    img.paste(drawingTwo, (1440-int(w/2), -112+int(h/2)), drawingTwo)
 
     # Draw text Three
     drawingThree = Image.new('RGBA', (1920, 1080), (255, 255, 255, 0))
@@ -226,11 +261,20 @@ def generate_thumbnail(game_title, p1, p2, char1, char2, game_number):
     # img.
     # img.addgamemode
     # img.show()
-    if not os.path.exists('./thumbnails/' + str(game_number) + '/'):
-        os.mkdir('./thumbnails/' + str(game_number) + '/')
-    img.save('./thumbnails/' + str(game_number) + '/' + game_title + '_' + p1.replace('\n', '') +
-             '_vs_' + p2.replace('\n', '') + '.png', 'PNG')
+# game_title, p1, p2, char1, char2, game_number
+    thumbnail_path = './thumbnails/' + str(game_number) + '_' + p1.replace(
+        '\n', '') + '_vs_' + p2.replace('\n', '') + '/' + game_title
+    if not os.path.exists('./thumbnails/' + str(game_number) + '_' + p1.replace('\n', '') +
+                          '_vs_' + p2.replace('\n', '')):
+        os.mkdir('./thumbnails/' + str(game_number) + '_' + p1.replace('\n', '') +
+                 '_vs_' + p2.replace('\n', ''))
+    img.save(thumbnail_path + '.png', 'PNG')
     img.close()
+    yt_tags = gen_yt_tags(p1, p2, char1, char2, game_title)
+    for tag in yt_tags:
+        with open(thumbnail_path + '.txt', 'a') as f:
+            f.write(tag + ', ')
+
     return
 
 # def test_color_of_fight_screen(image):
@@ -239,17 +283,23 @@ def generate_thumbnail(game_title, p1, p2, char1, char2, game_number):
 #     cv2.imwrite('testgreen.jpg', image)
 
 
+game_number = 0
 # Read video files
 for i, file in enumerate(os.listdir(video_path)):
+    # ToDo: if file starts with a period skip
+    if (file == '0 Full Livestream.mp4'):
+        print('skipping 0 Full Livestream.mp4')
+        continue
     if os.path.isfile(os.path.join(video_path, file)):
+        print('Processing file: ' + file)
         # print(file)
-        vidcap = cv2.VideoCapture('./videos/' + file)
+        vidcap = cv2.VideoCapture(video_path + file)
         success, image = vidcap.read()
         count = 0
         while success:
             # save frame as JPEG file
             success, image = vidcap.read()
-            if (count % 30 == 0):
+            if (count % 120 == 0):
                 # cv2.imwrite("frame%d.jpg" % count, image)
 
                 if (img is not None):
@@ -258,14 +308,24 @@ for i, file in enumerate(os.listdir(video_path)):
                     # convert image to histogram equalized image
 
                     height, width, channels = image.shape
+                    # if image[0, 0][2] != 169:
+                    #     continue
                     cimage = image[0:int(2*height/3), 0:width]
                     conimage = cv2.cvtColor(cimage, cv2.COLOR_BGR2RGB)
+                    # # print(conimage[0, 0][2])
+                    # if conimage[0, 0][2] != 12:
+                    #     # print('skipping')
+                    #     continue
+                    # else:
+                    #     print('Red value before: ' + str(cimage[0, 0][2]))
                     image_pil = Image.fromarray(conimage)
                     hash1 = imagehash.average_hash(image_pil)
                     difference = hash0 - hash1
-                    # print('dif' + str(difference))
+                    if (difference < 20):
+                        print('Difference: ' + str(difference))
 
-                    if (previous_difference < 5 and difference >= 5):
+                    if (previous_difference < 7 and difference >= 7):
+                        print('Generating thumbnail for game: ' + str(game_number))
                         for title in titles:
                             generate_thumbnail(title,
                                                get_text_of_area(
@@ -276,22 +336,35 @@ for i, file in enumerate(os.listdir(video_path)):
                                                    845, 920, 440, 915, previous_image, blackOutBackground=True),
                                                get_text_of_area(
                                                    845, 920, 1355, 1830, previous_image, blackOutBackground=True),
-                                               i
+                                               game_number
                                                )
+
+                        game_number += 1
                         # rating = cv2.compareHist(
                         #     hist_img, hist_img2, cv2.HISTCMP_CORREL)
                         # if (cv2.compareHist(hist_img, hist_img2, cv2.HISTCMP_CORREL)):
-                        cv2.imwrite("frame" + str(count) + 'rating'
-                                    ' ' + str(abs(difference)).replace('.', '') + ".jpg", cimage)
-                        cv2.imwrite("frame" + str(count) + 'rating'
-                                    ' ' + str(abs(difference)).replace('.', '') + "og.jpg", img)
-                        # print(rating)
-                        # # print(file)
-                        continue
 
+                        # speed up the process by skipping writing frames
+                        if not os.path.exists("frame_data/" + "frame" + str(count) + 'rating' + ' ' + str(abs(difference)).replace('.', '') + ".jpg"):
+                            cv2.imwrite("frame_data/" + "frame" + str(count) + 'rating' +
+                                        ' ' + str(abs(difference)).replace('.', '') + ".jpg", cimage)
+                        else:
+                            print("File 1 already exists")
+
+                        # speed up the process by skipping writing frames
+                        if not os.path.exists("frame_data/" + "frame" + str(count) + 'rating' + ' ' + str(abs(difference)).replace('.', '') + "og.jpg"):
+                            cv2.imwrite("frame_data/" + "frame" + str(count) + 'rating'
+                                        ' ' + str(abs(difference)).replace('.', '') + "og.jpg", img)
+                        else:
+                            print("File 2 already exists")
+                    # print(rating)
+                    # # print(file)
+                    # if (difference < 20):
+                    #     print('Previous difference: ' +
+                    #           str(previous_difference) + '\n')
                     previous_difference = difference
                     previous_image = image
-                    # print('pre_dif' + str(previous_difference))
+
                 # print('Read a new frame: ', success)
             count += 1
 
